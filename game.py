@@ -186,10 +186,10 @@ def print_board(stdscr, board, x_offset=2):
         
     # Print controls
     stdscr.addstr(len(board) + y_offset + 2, 0, 'Controls:')
-    stdscr.addstr(len(board) + y_offset + 3, 4, 'Left:   Left Arrow Key')
-    stdscr.addstr(len(board) + y_offset + 4, 4, 'Right:  Right Arrow Key')
-    stdscr.addstr(len(board) + y_offset + 5, 4, 'Down:   Down Arrow Key')
-    stdscr.addstr(len(board) + y_offset + 6, 4, 'Rotate: Up Arrow Key')
+    stdscr.addstr(len(board) + y_offset + 3, 4, 'Right:  Right Arrow Key or D')
+    stdscr.addstr(len(board) + y_offset + 4, 4, 'Left:   Left Arrow Key or A')
+    stdscr.addstr(len(board) + y_offset + 5, 4, 'Down:   Down Arrow Key or S')
+    stdscr.addstr(len(board) + y_offset + 6, 4, 'Rotate: Up Arrow Key or W')
     stdscr.addstr(len(board) + y_offset + 7, 4, 'Drop:   Space')
     stdscr.addstr(len(board) + y_offset + 9, 4, 'Hold:   H')
     stdscr.addstr(len(board) + y_offset + 8, 4, 'Pause:  P')
@@ -232,19 +232,19 @@ def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks
     # Get the user input
     c = stdscr.getch()
     
-    if c == curses.KEY_LEFT:
+    if c == curses.KEY_LEFT or c == ord('a'):
         # If the block can be moved left, move the block left
         if board.is_valid_position(block, x - 1, y):
             x -= 1
-    elif c == curses.KEY_RIGHT:
+    elif c == curses.KEY_RIGHT or c == ord('d'):
         # If the block can be moved right, move the block right
         if board.is_valid_position(block, x + 1, y):
             x += 1
-    elif c == curses.KEY_DOWN:
+    elif c == curses.KEY_DOWN or c == ord('s'):
         # If the block can be moved down, move the block down
         if board.is_valid_position(block, x, y + 1):
             y += 1
-    elif c == curses.KEY_UP:
+    elif c == curses.KEY_UP or c == ord('w'):
         # Rotate the block, if the block can be rotated
         new_shape = list(zip(*block.shape[::-1]))
         if board.is_valid_position(TetrisBlock(new_shape, block.color), x, y):
