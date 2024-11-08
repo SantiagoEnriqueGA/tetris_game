@@ -1,4 +1,4 @@
-# Tetris Game
+# Terminal Tetris Game
 
 This is a simple terminal-based Tetris game built with the `curses` library in Python. It features classic Tetris gameplay, including rotating and moving blocks, clearing rows, and tracking high scores in a SQLite database (`high_score.db`).
 
