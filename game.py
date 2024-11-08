@@ -11,6 +11,7 @@
 
 import curses
 from curses import wrapper
+import sqlite3
 
 import math
 import random
@@ -192,7 +193,7 @@ def print_board(stdscr, board, x_offset=2):
     stdscr.addstr(len(board) + y_offset + 7, 4, 'Drop:   Space')
     stdscr.addstr(len(board) + y_offset + 9, 4, 'Hold:   H')
     stdscr.addstr(len(board) + y_offset + 8, 4, 'Pause:  P')
-    
+       
     stdscr.refresh()
     
 def print_block(stdscr, block, x, y, offset=2):
@@ -216,7 +217,16 @@ def print_shadow(stdscr, board, block, x, y, offset=2):
             if block.shape[i][j] == 1:
                 stdscr.addstr(i + y - 1 + 2, (j + x) * offset, 'X'*2)
     stdscr.refresh()
-
+    
+def print_leaderboard(stdscr, x, y, high_scores):
+    """Print the leaderboard on the screen"""
+    stdscr.addstr(y, x, 'Leaderboard', curses.color_pair(7))
+    
+    for i in range(len(high_scores)):
+        stdscr.addstr(y + 1 + i, x, '{}. {}'.format(i + 1, high_scores[i]))
+    
+    stdscr.refresh()
+    
 def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks):
     """Handle user input for moving and rotating the block."""
     # Get the user input
@@ -265,13 +275,44 @@ def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks
     # Return the new position of the block
     return x, y, True, block, held_block
 
+def read_high_score():
+    """Read the high score from the database"""
+    conn = sqlite3.connect('high_score.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS scores (high_score INTEGER)''')
+    cursor.execute('''SELECT MAX(high_score) FROM scores''')
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result[0] is not None else 0
+
+def read_high_scores(count=5):
+    """Read the high scores from the database"""
+    conn = sqlite3.connect('high_score.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS scores (high_score INTEGER)''')
+    cursor.execute('''SELECT high_score FROM scores ORDER BY high_score DESC LIMIT ?''', (count,))
+    result = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in result]
+    
+def write_high_score(score):
+    """Write the high score to the database"""
+    conn = sqlite3.connect('high_score.db')
+    cursor = conn.cursor()
+    cursor.execute('''INSERT INTO scores (high_score) VALUES (?)''', (score,))
+    conn.commit()
+    conn.close()
+    
+
 def main(stdscr):
     global game_x, game_y
+    high_scores = read_high_scores(5)
     
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK) # Define the color pair
     board = TetrisBoard(game_x, game_y)                         # Initialize the board
     blocks = Blocks()                                           # Initialize the blocks
     print_board(stdscr, board)                                  # Print the initial board
+    print_leaderboard(stdscr, game_x * 3 + 5, 1, high_scores) # Print the leaderboard
     
     # Main game loop
     next_block = None
@@ -294,6 +335,7 @@ def main(stdscr):
         # Get user input, column index to move the block
         while board.is_valid_position(block, x, y):          
             print_board(stdscr, board)                      # Print the board
+            print_leaderboard(stdscr, game_x * 3 + 5, 1, high_scores) # Print the leaderboard
             print_shadow(stdscr, board, block, x, y)        # Print the shadow of the block
             print_block(stdscr, block, x, y)                # Print the block
             
@@ -322,8 +364,13 @@ def main(stdscr):
         board.add_block(block, x, y)    # Add the block to the board
         board.remove_full_rows(stdscr)  # Remove the full rows from the board
     
+    
     # Game over middle screen message
     stdscr.addstr(game_y // 2, game_x * 2 + 4, 'Game Over', curses.color_pair(7))
+    
+    if board.get_score() > read_high_score():
+        stdscr.addstr(game_y // 2 + 2, game_x * 2 + 4, 'New High Score!', curses.color_pair(7))
+        
     
     # Wait for user input to close the game
     stdscr.refresh()
@@ -331,6 +378,11 @@ def main(stdscr):
         c = stdscr.getch()
         if c != -1:
             break
+        
+    # Update the high score
+    board.score = board.get_score()    # Get the final score
+    write_high_score(board.score)      # Write the high score to the database
+    
     
 if __name__ == '__main__':
     # wrapper function to initialize the curses application
