@@ -2,6 +2,9 @@
 
 This is a simple terminal-based Tetris game built with the `curses` library in Python. It features classic Tetris gameplay, including rotating and moving blocks, clearing rows, and tracking high scores in a SQLite database (`high_score.db`).
 
+## Screenshot
+![alt text](https://raw.githubusercontent.com/SantiagoEnriqueGA/tetris_game/refs/heads/main/game.PNG)
+
 ## Features
 
 - **Graphical Display**: Displays blocks, game board, and scores in the terminal using `curses`.
