@@ -298,6 +298,7 @@ def get_best_move(board, block, x, y):
     # For each possible rotation and position of the block
     for i in range(4):
         new_shape = list(zip(*block.shape[::-1]))
+        block.shape = new_shape
         
         # For each column in the board
         for j in range(board.width):
@@ -305,7 +306,6 @@ def get_best_move(board, block, x, y):
             
             # Get the lowest position for the current rotation and column
             while board.is_valid_position(TetrisBlock(new_shape, block.color), j, y):
-                block.shape = new_shape
                 y += 1
             y -= 1
             
@@ -315,16 +315,19 @@ def get_best_move(board, block, x, y):
                 lowest = calculate_lowest_position(board, block, j, y)
                 
                 # Update the best score and move
+                if best_move is None:
+                    best_move = (j, block)
+                    best_score = score
+                    lowest_position = lowest
                 if score > best_score:
                     best_score = score
                     best_move = (j, block)
                 # If the scores are equal, choose the move with the lowest position
-                elif score == best_score and lowest_position < lowest:
+                elif score == best_score and lowest > lowest_position:
                     lowest_position = lowest
-                    best_score = score
                     best_move = (j, block)
                 # If the scores are equal and the positions are equal, choose the move with the lowest x position
-                elif score <= 0 and best_score <= 0 and lowest < lowest_position:
+                elif score <= 0 and best_score <= 0 and lowest > lowest_position:
                     lowest_position = lowest
                     best_move = (j, block)
         
