@@ -17,6 +17,9 @@ import math
 import random
 import time
 
+# Random seed for reproducibility
+random.seed(0)
+
 # Define global variables for the game board dimensions
 game_x = 15     # Width of the game board
 game_y = 20     # Height of the game board
@@ -275,6 +278,102 @@ def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks
     # Return the new position of the block
     return x, y, True, block, held_block
 
+def bot_input(board, block, x, y, held_block):
+    """Bot that plays the game automatically."""
+    # Get the best move for the current block
+    best_move = get_best_move(board, block, x, y)
+    
+    # Perform the best move
+    x, block = best_move
+    
+    # Return the new position of the block
+    return x, y, True, block, held_block
+
+def get_best_move(board, block, x, y):
+    """Get the best move for the current block based on the highest score."""
+    best_score = 0
+    lowest_position = float('inf')
+    best_move = None
+    
+    # For each possible rotation and position of the block
+    for i in range(4):
+        new_shape = list(zip(*block.shape[::-1]))
+        
+        # For each column in the board
+        for j in range(board.width):
+            y=0
+            
+            # Get the lowest position for the current rotation and column
+            while board.is_valid_position(TetrisBlock(new_shape, block.color), j, y):
+                block.shape = new_shape
+                y += 1
+            y -= 1
+            
+            if board.is_valid_position(block, j, y):
+                # Calculate the score for the current move
+                score = calculate_score(board, block, j, y)
+                lowest = calculate_lowest_position(board, block, j, y)
+                
+                # Update the best score and move
+                if score > best_score:
+                    best_score = score
+                    best_move = (j, block)
+                # If the scores are equal, choose the move with the lowest position
+                elif score == best_score and lowest_position < lowest:
+                    lowest_position = lowest
+                    best_score = score
+                    best_move = (j, block)
+                # If the scores are equal and the positions are equal, choose the move with the lowest x position
+                elif score <= 0 and best_score <= 0 and lowest < lowest_position:
+                    lowest_position = lowest
+                    best_move = (j, block)
+        
+        # Rotate the block for the next iteration
+        block.shape = new_shape
+    
+    return best_move
+
+def calculate_score(board, block, x, y):
+    """Calculate the score for the given block position."""
+    # Get the board and the board types
+    board_types = board.get_board_type()
+    board = board.get_board()
+    
+    # Copy the board and the board types
+    board_copy = [row.copy() for row in board]
+    board_types_copy = [row.copy() for row in board_types]
+    
+    # Add the block to the board copy
+    for i in range(len(block.shape)):
+        for j in range(len(block.shape[i])):
+            if block.shape[i][j] == 1:
+                board_copy[i + y][j + x] = 1
+                board_types_copy[i + y][j + x] = block.color
+    
+    # Remove the full rows from the board copy
+    full_rows = []
+    for i in range(len(board_copy)):
+        if all(board_copy[i]):
+            full_rows.append(i)
+    
+    for i in full_rows:
+        board_copy.pop(i)
+        board_copy.insert(0, [2 if x == 0 or x == len(board_copy[0]) - 1 else 0 for x in range(len(board_copy[0]))])
+        
+        board_types_copy.pop(i)
+        board_types_copy.insert(0, ['X' if x == 0 or x == len(board_types_copy[0]) - 1 else 0 for x in range(len(board_types_copy[0]))])
+    
+    # Calculate the score based on the number of full rows removed
+    score = int(math.pow(len(full_rows), 2))
+    
+    return score
+
+def calculate_lowest_position(board, block, x, y):
+    """Calculate the lowest position for the given block."""
+    while board.is_valid_position(block, x, y):
+        y += 1
+    return y - 1
+
 def read_high_score():
     """Read the high score from the database"""
     conn = sqlite3.connect('high_score.db')
@@ -304,7 +403,7 @@ def write_high_score(score):
     conn.close()
     
 
-def main(stdscr):
+def main(stdscr, bot=True):
     global game_x, game_y
     high_scores = read_high_scores(5)
     
@@ -348,15 +447,24 @@ def main(stdscr):
             
             # Wait for and get user input
             stdscr.timeout(100)  # Check for user input every 100ms
-            x, y, continue_game, block, held_block = handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks)
+            
+            if not bot:
+                x, y, continue_game, block, held_block = handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks)
+            else:
+                x, y, continue_game, block, held_block = bot_input(board, block, x, y, held_block)
+                while board.is_valid_position(block, x, y + 1):
+                    y += 1
             
             # Move the block down based on the timer
-            if time.time() - last_move_down_time >= move_down_interval:
+            if not bot and time.time() - last_move_down_time >= move_down_interval:
                 if board.is_valid_position(block, x, y + 1):
                     y += 1
                 else:
                     break
                 last_move_down_time = time.time()
+            else:
+                time.sleep(0.1)
+                break
             
             if not continue_game:
                 break
