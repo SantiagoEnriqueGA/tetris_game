@@ -281,19 +281,49 @@ def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks
 def bot_input(board, block, x, y, held_block):
     """Bot that plays the game automatically."""
     # Get the best move for the current block
-    best_move = get_best_move(board, block, x, y)
+    
+    # Get score for the current block
+    best_move, best_shape, best_score, lowest_position = get_best_move(board, block, x, y)
+    
+    # Get the best move for the held block
+
+    held_move, held_shape, held_score, held_lowest = get_best_move(board, held_block, x, y)
+    
+    # If the held block has a higher score, swap the blocks
+    if held_score > best_score:
+        best_move = held_move
+        best_shape = held_shape
+        best_score = held_score
+        lowest_position = held_lowest
+    
+    # If the held block has the same score but a lower position, swap the blocks
+    elif held_score == best_score and held_lowest > lowest_position:
+        best_move = held_move
+        best_shape = held_shape
+        best_score = held_score
+        lowest_position = held_lowest
+        
+    # If same score and position, choose random block
+    elif held_score == best_score and held_lowest == lowest_position:
+        if random.choice([True, False]):
+            best_move = held_move
+            best_shape = held_shape
+            best_score = held_score
+            lowest_position = held_lowest
     
     # Perform the best move
     x, block = best_move
+    block.shape = best_shape
     
     # Return the new position of the block
     return x, y, True, block, held_block
 
 def get_best_move(board, block, x, y):
-    """Get the best move for the current block based on the highest score."""
+    """Get the best move for the current block based on the highest score and lowest position."""
     best_score = 0
     lowest_position = float('inf')
     best_move = None
+    best_shape = block.shape
     
     # For each possible rotation and position of the block
     for i in range(4):
@@ -319,22 +349,26 @@ def get_best_move(board, block, x, y):
                     best_move = (j, block)
                     best_score = score
                     lowest_position = lowest
+                    best_shape = block.shape
                 if score > best_score:
                     best_score = score
                     best_move = (j, block)
+                    best_shape = block.shape
                 # If the scores are equal, choose the move with the lowest position
                 elif score == best_score and lowest > lowest_position:
                     lowest_position = lowest
                     best_move = (j, block)
+                    best_shape = block.shape
                 # If the scores are equal and the positions are equal, choose the move with the lowest x position
                 elif score <= 0 and best_score <= 0 and lowest > lowest_position:
                     lowest_position = lowest
                     best_move = (j, block)
+                    best_shape = block.shape
         
         # Rotate the block for the next iteration
         block.shape = new_shape
     
-    return best_move
+    return best_move, best_shape, best_score, lowest_position
 
 def calculate_score(board, block, x, y):
     """Calculate the score for the given block position."""
@@ -451,20 +485,31 @@ def main(stdscr, bot=True):
             # Wait for and get user input
             stdscr.timeout(100)  # Check for user input every 100ms
             
+            # If bot is enabled, use bot input
             if not bot:
                 x, y, continue_game, block, held_block = handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks)
             else:
+                # If no block is held, hold the current block
+                if held_block is None:
+                    held_block = block
+                    block = next_block
+                    pass
+                
+                # Get the bot input
                 x, y, continue_game, block, held_block = bot_input(board, block, x, y, held_block)
+                
+                # Move the block down
                 while board.is_valid_position(block, x, y + 1):
                     y += 1
             
-            # Move the block down based on the timer
+            # If user, move the block down based on the timer
             if not bot and time.time() - last_move_down_time >= move_down_interval:
                 if board.is_valid_position(block, x, y + 1):
                     y += 1
                 else:
                     break
                 last_move_down_time = time.time()
+            # If bot, sleep
             else:
                 time.sleep(0.1)
                 break
