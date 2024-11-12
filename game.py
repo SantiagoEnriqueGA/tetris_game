@@ -24,9 +24,8 @@ import time
 GAME_WIDTH = 15     # Width of the game board
 GAME_HEIGHT = 20     # Height of the game board
 BLINK_TIMES = 3
-BLINK_DELAY = 0.1
-
-BOT_SPEED = 1
+BLINK_DELAY = 0.05
+BOT_SPEED = .1
 
 # Define color pairs
 COLOR_CYAN = 2
@@ -318,11 +317,10 @@ def bot_input(board, block, x, y, held_block):
     # Get the best move for the current block
     
     # Get score for the current block
-    best_move, best_shape, best_score, lowest_position = get_best_move(board, block, x, y)
+    best_move, best_shape, best_score, lowest_position, best_holes = get_best_move(board, block, x, y)
     
     # Get the best move for the held block
-
-    held_move, held_shape, held_score, held_lowest = get_best_move(board, held_block, x, y)
+    held_move, held_shape, held_score, held_lowest, held_holes = get_best_move(board, held_block, x, y)
     
     # If the held block has a higher score, swap the blocks
     if held_score > best_score:
@@ -330,6 +328,7 @@ def bot_input(board, block, x, y, held_block):
         best_shape = held_shape
         best_score = held_score
         lowest_position = held_lowest
+        best_holes = held_holes
         held_block, block = swap_blocks(board, block, held_block, x, y)
     
     # If the held block has the same score but a lower position, swap the blocks
@@ -338,15 +337,26 @@ def bot_input(board, block, x, y, held_block):
         best_shape = held_shape
         best_score = held_score
         lowest_position = held_lowest
+        best_holes = held_holes
         held_block, block = swap_blocks(board, block, held_block, x, y)
         
-    # If same score and position, choose random block
-    elif held_score == best_score and held_lowest == lowest_position:
+    # If the held block has the same score and position but fewer holes, swap the blocks
+    elif held_score == best_score and held_lowest == lowest_position and held_holes < best_holes:
+        best_move = held_move
+        best_shape = held_shape
+        best_score = held_score
+        lowest_position = held_lowest
+        best_holes = held_holes
+        held_block, block = swap_blocks(board, block, held_block, x, y)
+    
+    # If same score, position, and holes, choose random block
+    elif held_score == best_score and held_lowest == lowest_position and held_holes == best_holes:
         if random.choice([True, False]):
             best_move = held_move
             best_shape = held_shape
             best_score = held_score
             lowest_position = held_lowest
+            best_holes = held_holes
             held_block, block = swap_blocks(board, block, held_block, x, y)
     
     # Perform the best move
@@ -365,9 +375,10 @@ def swap_blocks(board, block, held_block, x, y):
         return held_block, block
 
 def get_best_move(board, block, x, y):
-    """Get the best move for the current block based on the highest score and lowest position."""
+    """Get the best move for the current block based on the highest score, lowest position, and fewest holes."""
     best_score = 0
     lowest_position = float('inf')
+    best_holes = float('inf')
     best_move = None
     best_shape = block.shape
     
@@ -378,7 +389,7 @@ def get_best_move(board, block, x, y):
         
         # For each column in the board
         for j in range(board.width):
-            y=0
+            y = 0
             
             # Get the lowest position for the current rotation and column
             while board.is_valid_position(TetrisBlock(new_shape, block.color), j, y):
@@ -389,32 +400,38 @@ def get_best_move(board, block, x, y):
                 # Calculate the score for the current move
                 score = calculate_score(board, block, j, y)
                 lowest = calculate_lowest_position(board, block, j, y)
+                holes = calculate_holes(board, block, j, y)
                 
                 # Update the best score and move
                 if best_move is None:
                     best_move = (j, block)
                     best_score = score
                     lowest_position = lowest
+                    best_holes = holes
                     best_shape = block.shape
+                # If the score is higher, choose the move with the highest score
                 if score > best_score:
                     best_score = score
                     best_move = (j, block)
                     best_shape = block.shape
+                    lowest_position = lowest
+                    best_holes = holes
                 # If the scores are equal, choose the move with the lowest position
                 elif score == best_score and lowest > lowest_position:
                     lowest_position = lowest
                     best_move = (j, block)
                     best_shape = block.shape
-                # If the scores are equal and the positions are equal, choose the move with the lowest x position
-                elif score <= 0 and best_score <= 0 and lowest > lowest_position:
-                    lowest_position = lowest
+                    best_holes = holes
+                # If the scores and positions are equal, choose the move with the fewest holes
+                elif score == best_score and lowest == lowest_position and holes < best_holes:
+                    best_holes = holes
                     best_move = (j, block)
                     best_shape = block.shape
         
         # Rotate the block for the next iteration
         block.shape = new_shape
     
-    return best_move, best_shape, best_score, lowest_position
+    return best_move, best_shape, best_score, lowest_position, best_holes
 
 def calculate_score(board, block, x, y):
     """Calculate the score for the given block position."""
@@ -456,6 +473,17 @@ def calculate_lowest_position(board, block, x, y):
     while board.is_valid_position(block, x, y):
         y += 1
     return y - 1
+
+def calculate_holes(board, block, x, y):
+    """Calculate the number of holes in the board. For each empty cell under a block cell, increment the holes count."""
+    holes = 0
+    for i in range(len(block.shape)):
+        for j in range(len(block.shape[i])):
+            if block.shape[i][j] == 1:
+                for k in range(y + i + 1, board.height):
+                    if board.board[k][x + j] == 0:
+                        holes += 1
+    return holes
 
 def read_high_score():
     """Read the high score from the database"""
@@ -573,6 +601,10 @@ def main(stdscr):
     if board.get_score() > read_high_score():
         stdscr.addstr(GAME_HEIGHT // 2 + 2, GAME_WIDTH * 2 + 4, 'New High Score!', curses.color_pair(7))
         
+    # Update the high score
+    board.score = board.get_score()    # Get the final score
+    write_high_score(board.score)      # Write the high score to the database
+    
     # Wait for user input to close the game
     stdscr.refresh()
     while True:
