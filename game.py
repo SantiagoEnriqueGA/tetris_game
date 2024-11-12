@@ -230,6 +230,31 @@ def print_leaderboard(stdscr, x, y, high_scores):
     
     stdscr.refresh()
     
+def print_intro(stdscr):
+    """Print the intro text on the screen"""
+    stdscr.addstr(0, 0, 'Welcome to Tetris!', curses.color_pair(7))
+    stdscr.addstr(1, 0, 'Press any space to start the game.', curses.color_pair(7))
+    stdscr.addstr(2, 0, 'Press any b to run the game in bot mode.', curses.color_pair(7))
+    
+    # Print controls
+    stdscr.addstr(3, 0, 'Controls:')
+    stdscr.addstr(4, 4, 'Right:  Right Arrow Key or D')
+    stdscr.addstr(5, 4, 'Left:   Left Arrow Key or A')
+    stdscr.addstr(6, 4, 'Down:   Down Arrow Key or S')
+    stdscr.addstr(6, 4, 'Rotate: Up Arrow Key or W')
+    stdscr.addstr(7, 4, 'Drop:   Space')
+    stdscr.addstr(8, 4, 'Hold:   H')
+    stdscr.addstr(9, 4, 'Pause:  P')
+    
+    stdscr.refresh()
+    
+    while True:
+        c = stdscr.getch()
+        if c == ord(' '):
+            return False
+        elif c == ord('b'):
+            return True
+    
 def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks):
     """Handle user input for moving and rotating the block."""
     # Get the user input
@@ -440,7 +465,9 @@ def write_high_score(score):
     conn.close()
     
 
-def main(stdscr, bot=True):
+def main(stdscr):
+    bot = print_intro(stdscr)
+    
     global game_x, game_y
     high_scores = read_high_scores(5)
     
