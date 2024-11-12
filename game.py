@@ -232,19 +232,19 @@ def print_leaderboard(stdscr, x, y, high_scores):
     
 def print_intro(stdscr):
     """Print the intro text on the screen"""
-    stdscr.addstr(0, 0, 'Welcome to Tetris!', curses.color_pair(7))
+    stdscr.addstr(0, 0, '--Welcome to Tetris!--', curses.color_pair(7))
     stdscr.addstr(1, 0, 'Press any space to start the game.', curses.color_pair(7))
     stdscr.addstr(2, 0, 'Press any b to run the game in bot mode.', curses.color_pair(7))
     
     # Print controls
-    stdscr.addstr(3, 0, 'Controls:')
-    stdscr.addstr(4, 4, 'Right:  Right Arrow Key or D')
-    stdscr.addstr(5, 4, 'Left:   Left Arrow Key or A')
-    stdscr.addstr(6, 4, 'Down:   Down Arrow Key or S')
-    stdscr.addstr(6, 4, 'Rotate: Up Arrow Key or W')
-    stdscr.addstr(7, 4, 'Drop:   Space')
-    stdscr.addstr(8, 4, 'Hold:   H')
-    stdscr.addstr(9, 4, 'Pause:  P')
+    stdscr.addstr(4, 0, 'Controls:')
+    stdscr.addstr(5, 4, 'Right:  Right Arrow Key or D')
+    stdscr.addstr(6, 4, 'Left:   Left Arrow Key or A')
+    stdscr.addstr(7, 4, 'Down:   Down Arrow Key or S')
+    stdscr.addstr(8, 4, 'Rotate: Up Arrow Key or W')
+    stdscr.addstr(9, 4, 'Drop:   Space')
+    stdscr.addstr(10, 4, 'Hold:   H')
+    stdscr.addstr(11, 4, 'Pause:  P')
     
     stdscr.refresh()
     
@@ -320,6 +320,7 @@ def bot_input(board, block, x, y, held_block):
         best_shape = held_shape
         best_score = held_score
         lowest_position = held_lowest
+        held_block, block = swap_blocks(board, block, held_block, x, y)
     
     # If the held block has the same score but a lower position, swap the blocks
     elif held_score == best_score and held_lowest > lowest_position:
@@ -327,6 +328,7 @@ def bot_input(board, block, x, y, held_block):
         best_shape = held_shape
         best_score = held_score
         lowest_position = held_lowest
+        held_block, block = swap_blocks(board, block, held_block, x, y)
         
     # If same score and position, choose random block
     elif held_score == best_score and held_lowest == lowest_position:
@@ -335,6 +337,7 @@ def bot_input(board, block, x, y, held_block):
             best_shape = held_shape
             best_score = held_score
             lowest_position = held_lowest
+            held_block, block = swap_blocks(board, block, held_block, x, y)
     
     # Perform the best move
     x, block = best_move
@@ -342,6 +345,14 @@ def bot_input(board, block, x, y, held_block):
     
     # Return the new position of the block
     return x, y, True, block, held_block
+
+def swap_blocks(board, block, held_block, x, y):
+    """Swap the held block with the current block."""
+    if board.is_valid_position(held_block, x, y):
+        held_block, block = block, held_block
+        return held_block, block
+    else:
+        return held_block, block
 
 def get_best_move(board, block, x, y):
     """Get the best move for the current block based on the highest score and lowest position."""
