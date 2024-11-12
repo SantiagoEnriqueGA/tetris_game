@@ -75,8 +75,30 @@ class TetrisBoard:
                     self.board[i + y][j + x] = 1                # Add the cell to the board
                     self.cell_type[i + y][j + x] = block.color  # Add the cell type to the board
 
-    def remove_full_rows(self, stdscr):
+    def remove_full_rows(self):
         """Remove the full rows from the board and update the score"""
+        full_rows = []
+        for i in range(self.height):    # Check each row
+            if all(self.board[i]):      # If the row is full
+                full_rows.append(i)     # Add the row to the full rows list
+        
+        if not full_rows: return        # If no full rows, return
+        
+        for i in full_rows:
+            # Remove the full row
+            self.board.pop(i)
+            self.board.insert(0, [2 if x == 0 or x == self.width - 1 else 0 for x in range(self.width)])
+            
+            self.cell_type.pop(i)
+            self.cell_type.insert(0, ['X' if x == 0 or x == self.width - 1 else 0 for x in range(self.width)])
+            
+        # Update the score
+        # The score is the square of the number of full rows removed
+        # This is to encourage the player to remove more rows at once
+        self.score += int(math.pow(len(full_rows), 2))
+            
+    def print_remove_full_rows(self, stdscr):
+        """Print and remove the full rows from the board and update the score"""
         full_rows = []
         for i in range(self.height):    # Check each row
             if all(self.board[i]):      # If the row is full
@@ -137,7 +159,8 @@ class TetrisBoard:
     def get_board_type(self):
         """Return the board"""
         return self.cell_type
-
+    
+    
 class TetrisBlock:
     def __init__(self, shape, color):
         """A class to represent a Tetris block."""
@@ -592,7 +615,7 @@ def main(stdscr):
                 break
         
         board.add_block(block, x, y)    # Add the block to the board
-        board.remove_full_rows(stdscr)  # Remove the full rows from the board
+        board.print_remove_full_rows(stdscr)  # Remove the full rows from the board
     
     
     # Game over middle screen message
