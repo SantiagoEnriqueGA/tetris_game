@@ -18,11 +18,24 @@ import random
 import time
 
 # Random seed for reproducibility
-random.seed(0)
+# random.seed(0)
 
-# Define global variables for the game board dimensions
-game_x = 15     # Width of the game board
-game_y = 20     # Height of the game board
+# Define constants for the game
+GAME_WIDTH = 15     # Width of the game board
+GAME_HEIGHT = 20     # Height of the game board
+BLINK_TIMES = 3
+BLINK_DELAY = 0.1
+
+BOT_SPEED = 1
+
+# Define color pairs
+COLOR_CYAN = 2
+COLOR_BLUE = 3
+COLOR_MAGENTA = 4
+COLOR_YELLOW = 5
+COLOR_GREEN = 6
+COLOR_RED = 7
+COLOR_WHITE = 8
 
 class TetrisBoard:
     def __init__(self, width, height):
@@ -79,17 +92,17 @@ class TetrisBoard:
             # Animate the row removal, 
             # Change the color of the row to red
             # Blink 3 times and remove the row
-            for _ in range(3):
+            for _ in range(BLINK_TIMES):
                 for j in range(1, self.width - 1):
-                    self.board[i][j] = 8    
+                    self.board[i][j] = COLOR_WHITE 
                     self.cell_type[i][j] = 'X'
                 print_board(stdscr, self)
-                time.sleep(0.1)
+                time.sleep(BLINK_DELAY)
                 for j in range(1, self.width - 1):
                     self.board[i][j] = 0
                     self.cell_type[i][j] = 'X'
                 print_board(stdscr, self)
-                time.sleep(0.1)
+                time.sleep(BLINK_DELAY)
             
         # Reset the board to the original state
         self.board = orignal_board.copy()
@@ -134,25 +147,22 @@ class TetrisBlock:
 
 class Blocks:
     def __init__(self):
-        """Initializes the Blocks class with predefined colors and block shapes."""
-        # Init colors for each block
-        curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_CYAN)
-        curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLUE)
-        curses.init_pair(4, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
-        curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
-        curses.init_pair(6, curses.COLOR_GREEN, curses.COLOR_GREEN)
-        curses.init_pair(7, curses.COLOR_RED, curses.COLOR_RED)
-        curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_WHITE)
+        curses.init_pair(COLOR_CYAN, curses.COLOR_CYAN, curses.COLOR_CYAN)
+        curses.init_pair(COLOR_BLUE, curses.COLOR_BLUE, curses.COLOR_BLUE)
+        curses.init_pair(COLOR_MAGENTA, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+        curses.init_pair(COLOR_YELLOW, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
+        curses.init_pair(COLOR_GREEN, curses.COLOR_GREEN, curses.COLOR_GREEN)
+        curses.init_pair(COLOR_RED, curses.COLOR_RED, curses.COLOR_RED)
+        curses.init_pair(COLOR_WHITE, curses.COLOR_WHITE, curses.COLOR_WHITE)
                
-        # Define the blocks, each block has a shape and a color
         self.blocks = {
-            'I': TetrisBlock([[1, 1, 1, 1]], 2),
-            'J': TetrisBlock([[1, 0, 0], [1, 1, 1]], 3),
-            'L': TetrisBlock([[0, 0, 1], [1, 1, 1]], 4),
-            'O': TetrisBlock([[1, 1], [1, 1]], 5),
-            'S': TetrisBlock([[0, 1, 1], [1, 1, 0]], 6),
-            'T': TetrisBlock([[0, 1, 0], [1, 1, 1]], 7),
-            'Z': TetrisBlock([[1, 1, 0], [0, 1, 1]], 8)
+            'I': TetrisBlock([[1, 1, 1, 1]], COLOR_CYAN),
+            'J': TetrisBlock([[1, 0, 0], [1, 1, 1]], COLOR_BLUE),
+            'L': TetrisBlock([[0, 0, 1], [1, 1, 1]], COLOR_MAGENTA),
+            'O': TetrisBlock([[1, 1], [1, 1]], COLOR_YELLOW),
+            'S': TetrisBlock([[0, 1, 1], [1, 1, 0]], COLOR_GREEN),
+            'T': TetrisBlock([[0, 1, 0], [1, 1, 1]], COLOR_RED),
+            'Z': TetrisBlock([[1, 1, 0], [0, 1, 1]], COLOR_WHITE)
         }
 
     def get_block(self, block_type):
@@ -285,7 +295,7 @@ def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks
     elif c == ord('p'):
         # Pause the game
         while True:
-            stdscr.addstr(game_y // 2, game_x * 2 + 4, 'Paused', curses.color_pair(7))
+            stdscr.addstr(GAME_HEIGHT // 2, GAME_WIDTH * 2 + 4, 'Paused', curses.color_pair(COLOR_RED))
             stdscr.refresh()
             c = stdscr.getch()
             if c == ord('p'):
@@ -479,14 +489,14 @@ def write_high_score(score):
 def main(stdscr):
     bot = print_intro(stdscr)
     
-    global game_x, game_y
+    global GAME_WIDTH, GAME_HEIGHT
     high_scores = read_high_scores(5)
     
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK) # Define the color pair
-    board = TetrisBoard(game_x, game_y)                         # Initialize the board
+    board = TetrisBoard(GAME_WIDTH, GAME_HEIGHT)                         # Initialize the board
     blocks = Blocks()                                           # Initialize the blocks
     print_board(stdscr, board)                                  # Print the initial board
-    print_leaderboard(stdscr, game_x * 3 + 5, 1, high_scores) # Print the leaderboard
+    print_leaderboard(stdscr, GAME_WIDTH * 3 + 5, 1, high_scores) # Print the leaderboard
     
     # Main game loop
     next_block = None
@@ -509,24 +519,23 @@ def main(stdscr):
         # Get user input, column index to move the block
         while board.is_valid_position(block, x, y):          
             print_board(stdscr, board)                      # Print the board
-            print_leaderboard(stdscr, game_x * 3 + 5, 1, high_scores) # Print the leaderboard
+            print_leaderboard(stdscr, GAME_WIDTH * 3 + 5, 1, high_scores) # Print the leaderboard
             print_shadow(stdscr, board, block, x, y)        # Print the shadow of the block
             print_block(stdscr, block, x, y)                # Print the block
             
-            stdscr.addstr(1, game_x*2+2, 'Next block:')     # Print the next block text
-            print_block(stdscr, next_block, game_x+2, 0)    # Print the next block
+            stdscr.addstr(1, GAME_WIDTH*2+2, 'Next block:')     # Print the next block text
+            print_block(stdscr, next_block, GAME_WIDTH+2, 0)    # Print the next block
             
             if held_block:
-                stdscr.addstr(5, game_x*2+2, 'Held block:')
-                print_block(stdscr, held_block, game_x+2, 4)
+                stdscr.addstr(5, GAME_WIDTH*2+2, 'Held block:')
+                print_block(stdscr, held_block, GAME_WIDTH+2, 4)
             
             # Wait for and get user input
             stdscr.timeout(100)  # Check for user input every 100ms
+            x, y, continue_game, block, held_block = handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks)
             
-            # If bot is enabled, use bot input
-            if not bot:
-                x, y, continue_game, block, held_block = handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks)
-            else:
+            # If bot mode is enabled
+            if bot:
                 # If no block is held, hold the current block
                 if held_block is None:
                     held_block = block
@@ -539,18 +548,17 @@ def main(stdscr):
                 # Move the block down
                 while board.is_valid_position(block, x, y + 1):
                     y += 1
+                
+                # Sleep for the bot speed
+                time.sleep(BOT_SPEED)
             
-            # If user, move the block down based on the timer
-            if not bot and time.time() - last_move_down_time >= move_down_interval:
+            # Move the block down based on the timer
+            if time.time() - last_move_down_time >= move_down_interval:
                 if board.is_valid_position(block, x, y + 1):
                     y += 1
                 else:
                     break
                 last_move_down_time = time.time()
-            # If bot, sleep
-            else:
-                time.sleep(0.1)
-                break
             
             if not continue_game:
                 break
@@ -560,23 +568,17 @@ def main(stdscr):
     
     
     # Game over middle screen message
-    stdscr.addstr(game_y // 2, game_x * 2 + 4, 'Game Over', curses.color_pair(7))
+    stdscr.addstr(GAME_HEIGHT // 2, GAME_WIDTH * 2 + 4, 'Game Over', curses.color_pair(7))
     
     if board.get_score() > read_high_score():
-        stdscr.addstr(game_y // 2 + 2, game_x * 2 + 4, 'New High Score!', curses.color_pair(7))
+        stdscr.addstr(GAME_HEIGHT // 2 + 2, GAME_WIDTH * 2 + 4, 'New High Score!', curses.color_pair(7))
         
-    
     # Wait for user input to close the game
     stdscr.refresh()
     while True:
         c = stdscr.getch()
         if c != -1:
             break
-        
-    # Update the high score
-    board.score = board.get_score()    # Get the final score
-    write_high_score(board.score)      # Write the high score to the database
-    
     
 if __name__ == '__main__':
     # wrapper function to initialize the curses application
