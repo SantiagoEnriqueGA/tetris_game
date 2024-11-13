@@ -2,6 +2,9 @@ import math
 import random
 import time
 import json
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 
 from game import calculate_score, calculate_lowest_position, calculate_holes
 
@@ -355,11 +358,16 @@ def rotate_block(shape):
     """Rotate the block shape 90 degrees clockwise."""
     return [list(row) for row in zip(*shape[::-1])]
 
-class GeneticAlgorithm:
-    def __init__(self, population_size, mutation_rate, crossover_rate):
+def evaluate_agent_parallel(agent):
+    """Evaluate a single agent by running the game with the agent's weights."""
+    return run_game(agent)
+
+class ParallelGeneticAlgorithm:
+    def __init__(self, population_size, mutation_rate, crossover_rate, num_processes=None):
         self.population_size = population_size
         self.mutation_rate = mutation_rate
         self.crossover_rate = crossover_rate
+        self.num_processes = num_processes or mp.cpu_count()
         self.population = self.initialize_population()
 
     def initialize_population(self):
@@ -368,21 +376,13 @@ class GeneticAlgorithm:
 
     def create_random_agent(self):
         """Create a random agent with random weights."""
-        # return [random.uniform(-1, 1) for _ in range(5)]  # 5 weights: left, right, down, rotate, hold
-        return [random.uniform(-1, 1) for _ in range(GAME_WIDTH * 3)] # 3 weights per column: score, lowest, holes
+        return [random.uniform(-1, 1) for _ in range(GAME_WIDTH * 3)]
 
     def evaluate_population(self):
-        """Evaluate the population and return their scores."""
-        scores = []
-        for agent in self.population:
-            score = self.evaluate_agent(agent)
-            scores.append(score)
+        """Evaluate the population in parallel and return their scores."""
+        with ProcessPoolExecutor(max_workers=self.num_processes) as executor:
+            scores = list(executor.map(evaluate_agent_parallel, self.population))
         return scores
-
-    def evaluate_agent(self, agent):
-        """Evaluate an agent by running the game with the agent's weights."""
-        # Modify run_game to accept agent weights and use them for decision making
-        return run_game(agent)
 
     def select_parents(self, scores):
         """Select parents based on their scores using roulette wheel selection."""
@@ -414,11 +414,18 @@ class GeneticAlgorithm:
     def create_new_population(self, scores):
         """Create a new population using selection, crossover, and mutation."""
         new_population = []
+        
+        # Keep the best performing agent (elitism)
+        best_agent_idx = scores.index(max(scores))
+        new_population.append(self.population[best_agent_idx])
+        
         while len(new_population) < self.population_size:
             parent1, parent2 = self.select_parents(scores)
             child1, child2 = self.crossover(parent1, parent2)
             new_population.append(self.mutate(child1))
-            new_population.append(self.mutate(child2))
+            if len(new_population) < self.population_size:
+                new_population.append(self.mutate(child2))
+                
         self.population = new_population[:self.population_size]
 
     def save_agent(self, agent, filename):
@@ -428,13 +435,59 @@ class GeneticAlgorithm:
 
     def run(self, generations):
         """Run the genetic algorithm for a given number of generations."""
+        start_time = time.time()
+        best_scores = []
+        
         for generation in range(generations):
+            gen_start_time = time.time()
+            
+            # Evaluate population in parallel
             scores = self.evaluate_population()
-            best_agent = self.population[scores.index(max(scores))]
-            self.save_agent(best_agent, f'gen_weights/best_agent_gen_{generation}.json')
+            
+            # Track best score and agent
+            best_score = max(scores)
+            best_agent = self.population[scores.index(best_score)]
+            best_scores.append(best_score)
+            
+            # Optional: Save best agent periodically
+            if (generation + 1) % 10 == 0:
+                self.save_agent(best_agent, f'best_agent_gen_{generation}.json')
+            
+            # Create new population
             self.create_new_population(scores)
-            print(f"Generation {generation}: Best Score = {max(scores)}")
+            
+            # Calculate and print statistics
+            avg_score = sum(scores) / len(scores)
+            gen_time = time.time() - gen_start_time
+            
+            print(f"Generation {generation + 1}/{generations}")
+            print(f"Best Score: {best_score}")
+            print(f"Average Score: {avg_score:.2f}")
+            print(f"Generation Time: {gen_time:.2f}s")
+            print("-" * 40)
+            
+        total_time = time.time() - start_time
+        print(f"\nTraining completed in {total_time:.2f}s")
+        print(f"Best score achieved: {max(best_scores)}")
+        
+        return best_scores
 
 if __name__ == '__main__':
-    ga = GeneticAlgorithm(population_size=1000, mutation_rate=0.1, crossover_rate=0.7)
-    ga.run(generations=10)
+    # Configuration
+    POPULATION_SIZE = 100
+    MUTATION_RATE = 0.1
+    CROSSOVER_RATE = 0.7
+    GENERATIONS = 100
+    NUM_PROCESSES = mp.cpu_count()  # Use all available CPU cores
+    
+    print(f"Running with {NUM_PROCESSES} processes")
+    
+    # Initialize and run the parallel genetic algorithm
+    ga = ParallelGeneticAlgorithm(
+        population_size=POPULATION_SIZE,
+        mutation_rate=MUTATION_RATE,
+        crossover_rate=CROSSOVER_RATE,
+        num_processes=NUM_PROCESSES
+    )
+    
+    best_scores = ga.run(generations=GENERATIONS)
