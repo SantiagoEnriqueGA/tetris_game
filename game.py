@@ -18,7 +18,7 @@ import random
 import time
 
 # Random seed for reproducibility
-random.seed(0)
+random.seed(42)
 
 # Define constants for the game
 GAME_WIDTH = 15     # Width of the game board
