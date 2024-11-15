@@ -125,106 +125,6 @@ def swap_blocks(board, block, held_block, x, y):
     else:
         return held_block, block
 
-# def run_game(agent_weights):
-#     global GAME_WIDTH, GAME_HEIGHT
-    
-#     board = TetrisBoard(GAME_WIDTH, GAME_HEIGHT)                         # Initialize the board
-#     blocks = Blocks()                                           # Initialize the blocks
-    
-#     # Main game loop
-#     next_block = None
-#     held_block = None
-    
-#     while not board.is_game_over():  
-#         # Print board
-#         # for line in board.get_board():
-#         #     print(' '.join([str(cell) for cell in line]))
-#         # print('-' * board.width*2)       
-        
-#         # For first pass, get a random block
-#         if next_block is None:
-#             next_block = blocks.get_block(random.choice(list(blocks.blocks.keys())))     # Get a random block        
-        
-#         # Set the current block to the next block
-#         block = next_block
-#         next_block = blocks.get_block(random.choice(list(blocks.blocks.keys())))         # Get a random block
-
-#         x = board.width // 2 - len(block.shape[0]) // 2     # Initial x position, center the block
-#         y = 0                                               # Initial y position
-        
-#         # Print block
-#         # for line in block.shape:
-#         #     print(' '.join([str(cell) for cell in line]))
-        
-#         move_count = 0  # Initialize move counter
-#         # Get user input, column index to move the block
-#         while board.is_valid_position(block, x, y):          
-#             # Use agent weights to decide the move
-#             move = decide_move(agent_weights, board, block, held_block, next_block, x, y)
-#             move_count += 1  # Increment move counter
-
-#             if move == 'left': 
-#                 # If can move left, move left
-#                 if board.is_valid_position(block, x - 1, y):
-#                     x -= 1
-#                 # Else, try to move down, if can't move down, break
-#                 elif board.is_valid_position(block, x, y + 1):
-#                     y += 1
-#                 else:
-#                     break              
-#             if move == 'right': 
-#                 # If can move right, move right
-#                 if board.is_valid_position(block, x + 1, y):
-#                     x += 1
-#                 # Else, try to move down, if can't move down, break
-#                 elif board.is_valid_position(block, x, y + 1):
-#                     y += 1
-#                 else:
-#                     break
-#             if move == 'rotate': 
-#                 # If can rotate, rotate
-#                 new_shape = list(zip(*block.shape[::-1]))
-#                 if board.is_valid_position(TetrisBlock(new_shape, block.color), x, y):
-#                     block.shape = rotate_block(block.shape)
-#                 # Else, try to move down, if can't move down, break
-#                 elif board.is_valid_position(block, x, y + 1):
-#                     y += 1
-#                 else:
-#                     break
-#             if move == 'hold':
-#                 # If no held block, swap the current block with the held block
-#                 if held_block is None:
-#                     held_block = block
-#                     block = next_block
-#                     next_block = blocks.get_block(random.choice(list(blocks.blocks.keys())))
-#                 # Else, swap the current block with the held block, if possible
-#                 elif board.is_valid_position(held_block, x, y):
-#                     held_block, block = block, held_block
-#                 # Else, try to move down, if can't move down, break
-#                 elif board.is_valid_position(block, x, y + 1):
-#                     y += 1
-#                 else:
-#                     break
-#             if move == 'down' or move_count % 3 == 0:
-#                 # If can move down, move down
-#                 if board.is_valid_position(block, x, y + 1):
-#                     y += 1
-#                 # Else, break
-#                 else:
-#                     break
-        
-#         # Move the block down if needed
-#         while board.is_valid_position(block, x, y + 1):
-#             y += 1
-                                            
-#         if board.is_valid_position(block, x, y):
-#             board.add_block(block, x, y)    # Add the block to the board
-#         else:
-#             break       
-#         board.remove_full_rows()  # Remove the full rows from the board
-        
-#     return board.get_score()    # Get the final score
-
 def run_game(agent_weights):
     global GAME_WIDTH, GAME_HEIGHT
     
@@ -259,21 +159,11 @@ def run_game(agent_weights):
         # Get user input, column index to move the block
         while board.is_valid_position(block, x, y):          
             # Use agent weights to decide the move
-            index = decide_index(agent_weights, board, block, x, y)
-            
-            # Rotate the block
-            rotation = index // 3
-            for r in range(rotation):
-                new_shape = rotate_block(block.shape)
-                if board.is_valid_position(TetrisBlock(new_shape, block.color), x, y):
-                    block.shape = new_shape
-            
-            # Move the block to the left or right
-            if board.is_valid_position(block, index // 3, y):
-                x = index // 3          
+            x, block = decide_index(agent_weights, board, block, x, y)        
             
             # Move the block down
             if board.is_valid_position(block, x, y + 1):
+                while board.is_valid_position(block, x, y + 1):
                     y += 1
             else:
                 break        
@@ -290,41 +180,18 @@ def run_game(agent_weights):
         
     return board.get_score()    # Get the final score
 
-def decide_move(agent_weights, board, block, held_block, next_block, x, y):
-    """Decide the move based on agent weights and the current game state."""
-    moves = ['left', 'right', 'down', 'rotate', 'hold']
-    move_scores = [0] * len(moves)
-    
-    score = calculate_score(board, block, x, y)
-    lowest = calculate_lowest_position(board, block, x, y)
-    holes = calculate_holes(board, block, x, y)
-    
-    # Evaluate each move
-    for i, move in enumerate(moves):
-        if move == 'left' and board.is_valid_position(block, x - 1, y):
-            move_scores[i] = agent_weights[0]
-        elif move == 'right' and board.is_valid_position(block, x + 1, y):
-            move_scores[i] = agent_weights[1]
-        elif move == 'down' and board.is_valid_position(block, x, y + 1):
-            move_scores[i] = agent_weights[2]
-        elif move == 'rotate':
-            new_shape = rotate_block(block.shape)
-            if board.is_valid_position(TetrisBlock(new_shape, block.color), x, y):
-                move_scores[i] = agent_weights[3]
-        elif move == 'hold':
-            if held_block is None or board.is_valid_position(held_block, x, y):
-                move_scores[i] = agent_weights[4]
-    
-    # Choose the move with the highest score
-    best_move_index = move_scores.index(max(move_scores))
-    return moves[best_move_index]
-
 def decide_index(agent_weights, board, block, x, y):
     """Get the best move for the current block based on the highest score, lowest position, and fewest holes * Agent Weights."""
-    index_scores = [0] * board.width * 3
-    
+    # Dict with scores for each possible rotation (0, 90, 180, 270) and position (x axis index)
+    index_scores = {
+                    '90': [0 for _ in range(board.width)],
+                    '180': [0 for _ in range(board.width)],
+                    '270': [0 for _ in range(board.width)],
+                    '0': [0 for _ in range(board.width)]
+                    }
+
     # For each possible rotation and position of the block
-    for i in range(4):
+    for pos in index_scores:
         new_shape = list(zip(*block.shape[::-1]))
         block.shape = new_shape
         
@@ -339,20 +206,28 @@ def decide_index(agent_weights, board, block, x, y):
             
             if board.is_valid_position(block, j, y):
                 # Calculate the score for the current move
-                score = calculate_score(board, block, j, y)
-                lowest = calculate_lowest_position(board, block, j, y)
-                holes = calculate_holes(board, block, j, y)
+                score  = agent_weights['score_weights'][j] * calculate_score(board, block, j, y)
+                lowest = agent_weights['lowest_weights'][j] * calculate_lowest_position(board, block, j, y)
+                holes  = agent_weights['holes_weights'][j] * calculate_holes(board, block, j, y)
                 
-                # Calculate the index for the current move
-                index = j * 3
-                index_scores[index] = score * agent_weights[0]
-                index_scores[index + 1] = lowest * agent_weights[1]
-                index_scores[index + 2] = holes * agent_weights[2]
+                # Calculate the index for the current move          
+                index_scores[pos][j] = score + lowest + holes
         
-        # Rotate the block for the next iteration
-        block.shape = new_shape
+        
+    # Get the best pos and index from the index_scores dict
+    best_pos = max(index_scores, key=lambda x: max(index_scores[x]))
+    best_index = index_scores[best_pos].index(max(index_scores[best_pos]))
     
-    return index_scores.index(max(index_scores))
+    # Rotate the block to the best position
+    if best_pos == '90':
+        block.shape = rotate_block(block.shape)
+    elif best_pos == '180':
+        block.shape = rotate_block(rotate_block(block.shape))
+    elif best_pos == '270':
+        block.shape = rotate_block(rotate_block(rotate_block(block.shape)))
+    
+    return best_index, block
+    
 
 def rotate_block(shape):
     """Rotate the block shape 90 degrees clockwise."""
@@ -376,7 +251,11 @@ class ParallelGeneticAlgorithm:
 
     def create_random_agent(self):
         """Create a random agent with random weights."""
-        return [random.uniform(-1, 1) for _ in range(GAME_WIDTH * 3)]
+        return {
+            'score_weights': [random.uniform(-1, 1) for _ in range(GAME_WIDTH)],
+            'lowest_weights': [random.uniform(-1, 1) for _ in range(GAME_WIDTH)],
+            'holes_weights': [random.uniform(-1, 1) for _ in range(GAME_WIDTH)]
+        }
 
     def evaluate_population(self):
         """Evaluate the population in parallel and return their scores."""
@@ -384,31 +263,35 @@ class ParallelGeneticAlgorithm:
             scores = list(executor.map(evaluate_agent_parallel, self.population))
         return scores
 
-    def select_parents(self, scores):
-        """Select parents based on their scores using roulette wheel selection."""
-        total_score = sum(scores)
-        if total_score == 0:
-            selection_probs = [1 / len(scores) for _ in scores]
-        else:
-            selection_probs = [score / total_score for score in scores]
-        parents = random.choices(self.population, weights=selection_probs, k=2)
+    def select_parents(self, scores, top_percentage=0.2):
+        """Select parents based on truncation selection."""
+        num_parents = int(self.population_size * top_percentage)
+        sorted_population = [agent for _, agent in sorted(zip(scores, self.population), key=lambda x: x[0], reverse=True)]
+        parents = random.choices(sorted_population[:num_parents], k=2)
         return parents
 
     def crossover(self, parent1, parent2):
         """Perform crossover between two parents to create two children."""
-        if random.random() < self.crossover_rate:
-            crossover_point = random.randint(1, len(parent1) - 1)
-            child1 = parent1[:crossover_point] + parent2[crossover_point:]
-            child2 = parent2[:crossover_point] + parent1[crossover_point:]
+        if random.random() < self.crossover_rate:   # With probability crossover_rate
+            child1 = {} 
+            child2 = {}
+            for key in parent1:
+                if random.random() < 0.5:           # With probability 0.5, this key is from parent1, else from parent2
+                    child1[key] = parent1[key]
+                    child2[key] = parent2[key]
+                else:
+                    child1[key] = parent2[key]
+                    child2[key] = parent1[key]
             return child1, child2
         else:
             return parent1, parent2
 
     def mutate(self, agent):
         """Mutate an agent's weights."""
-        for i in range(len(agent)):
-            if random.random() < self.mutation_rate:
-                agent[i] += random.uniform(-0.1, 0.1)
+        for key in agent:
+            for i in range(len(agent[key])):
+                if random.random() < self.mutation_rate:
+                    agent[key][i] += random.uniform(-0.1, 0.1)
         return agent
 
     def create_new_population(self, scores):
@@ -433,12 +316,36 @@ class ParallelGeneticAlgorithm:
         with open(filename, 'w') as f:
             json.dump(agent, f)
 
+    def load_checkpoint(self, filename):
+        """Load the checkpoint from a file."""
+        try:
+            with open(filename, 'r') as f:
+                checkpoint = json.load(f)
+            self.population = checkpoint['population']  # Load the population
+            start_generation = checkpoint['generation'] # Load the generation
+            return start_generation
+        except FileNotFoundError:
+            return 0
+
+    def save_checkpoint(self, filename, generation):
+        """Save the checkpoint to a file."""
+        checkpoint = {
+            'population': self.population,
+            'generation': generation
+        }
+        with open(filename, 'w') as f:
+            json.dump(checkpoint, f, indent=4)
+
     def run(self, generations):
         """Run the genetic algorithm for a given number of generations."""
         start_time = time.time()
         best_scores = []
+        checkpoint_file = 'checkpoint.json'
         
-        for generation in range(generations):
+        # Load checkpoint if it exists
+        start_generation = self.load_checkpoint(checkpoint_file)
+        
+        for generation in range(start_generation, generations):
             gen_start_time = time.time()
             
             # Evaluate population in parallel
@@ -449,9 +356,8 @@ class ParallelGeneticAlgorithm:
             best_agent = self.population[scores.index(best_score)]
             best_scores.append(best_score)
             
-            # Optional: Save best agent periodically
-            if (generation + 1) % 10 == 0:
-                self.save_agent(best_agent, f'best_agent_gen_{generation}.json')
+            # Save checkpoint
+            self.save_checkpoint(checkpoint_file, generation + 1)
             
             # Create new population
             self.create_new_population(scores)
@@ -474,10 +380,10 @@ class ParallelGeneticAlgorithm:
 
 if __name__ == '__main__':
     # Configuration
-    POPULATION_SIZE = 100
-    MUTATION_RATE = 0.1
+    POPULATION_SIZE = 1000
+    MUTATION_RATE = 0.2
     CROSSOVER_RATE = 0.7
-    GENERATIONS = 100
+    GENERATIONS = 10000
     NUM_PROCESSES = mp.cpu_count()  # Use all available CPU cores
     
     print(f"Running with {NUM_PROCESSES} processes")

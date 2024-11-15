@@ -18,14 +18,14 @@ import random
 import time
 
 # Random seed for reproducibility
-# random.seed(0)
+random.seed(0)
 
 # Define constants for the game
 GAME_WIDTH = 15     # Width of the game board
 GAME_HEIGHT = 20     # Height of the game board
 BLINK_TIMES = 3
-BLINK_DELAY = 0.05
-BOT_SPEED = .1
+BLINK_DELAY = 0
+BOT_SPEED = 0
 
 # Define color pairs
 COLOR_CYAN = 2
@@ -336,9 +336,17 @@ def handle_user_input(stdscr, board, block, x, y, held_block, next_block, blocks
     return x, y, True, block, held_block
 
 def bot_input(board, block, x, y, held_block):
-    """Bot that plays the game automatically."""
-    # Get the best move for the current block
-    
+    """
+    Bot that plays the game automatically.
+    Logic:
+        1. Get the best move for the current block.
+        2. Get the best move for the held block.
+        3. If the held block has a higher score, swap the blocks.
+        4. If the held block has the same score but a lower position, swap the blocks.
+        5. If the held block has the same score and position but fewer holes, swap the blocks.
+        6. If same score, position, and holes, choose random block.
+        7. Perform the best move.
+    """    
     # Get score for the current block
     best_move, best_shape, best_score, lowest_position, best_holes = get_best_move(board, block, x, y)
     
