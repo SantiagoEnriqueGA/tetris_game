@@ -74,7 +74,7 @@ class TetrisBoard:
                 if block.shape[i][j] == 1:                      # If the block has a cell, add the cell
                     self.board[i + y][j + x] = 1                # Add the cell to the board
                     self.cell_type[i + y][j + x] = block.color  # Add the cell type to the board
-
+    
     def remove_full_rows(self):
         """Remove the full rows from the board and update the score"""
         full_rows = []
@@ -159,6 +159,44 @@ class TetrisBoard:
     def get_board_type(self):
         """Return the board"""
         return self.cell_type
+
+    def get_column_height(self, col):
+        """
+        Returns the height of a column.
+        A column's height is the index of the highest filled cell.
+        """
+        for row in range(self.height):
+            if self.board[row][col] != 0:
+                return self.height - row
+        return 0
+
+    def get_column(self, col):
+        """
+        Returns a list representing the given column.
+        """
+        return [self.board[row][col] for row in range(self.height)]
+
+    def get_aggregate_height(self):
+        """
+        Returns the aggregate height of all columns.
+        """
+        return sum(self.get_column_height(col) for col in range(1, self.width - 1))
+
+    def get_holes(self):
+        """
+        Returns the number of holes in the board.
+        A hole is an empty space with a filled cell above it in a column.
+        """
+        holes = 0
+        for col in range(1, self.width - 1):
+            column = self.get_column(col)
+            filled = False
+            for cell in column:
+                if cell > 0:
+                    filled = True
+                elif filled:
+                    holes += 1
+        return holes
     
     
 class TetrisBlock:
@@ -168,14 +206,15 @@ class TetrisBlock:
         self.color = color
 
 class Blocks:
-    def __init__(self):
-        curses.init_pair(COLOR_CYAN, curses.COLOR_CYAN, curses.COLOR_CYAN)
-        curses.init_pair(COLOR_BLUE, curses.COLOR_BLUE, curses.COLOR_BLUE)
-        curses.init_pair(COLOR_MAGENTA, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
-        curses.init_pair(COLOR_YELLOW, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
-        curses.init_pair(COLOR_GREEN, curses.COLOR_GREEN, curses.COLOR_GREEN)
-        curses.init_pair(COLOR_RED, curses.COLOR_RED, curses.COLOR_RED)
-        curses.init_pair(COLOR_WHITE, curses.COLOR_WHITE, curses.COLOR_WHITE)
+    def __init__(self, curse=True):
+        if curse:
+            curses.init_pair(COLOR_CYAN, curses.COLOR_CYAN, curses.COLOR_CYAN)
+            curses.init_pair(COLOR_BLUE, curses.COLOR_BLUE, curses.COLOR_BLUE)
+            curses.init_pair(COLOR_MAGENTA, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+            curses.init_pair(COLOR_YELLOW, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
+            curses.init_pair(COLOR_GREEN, curses.COLOR_GREEN, curses.COLOR_GREEN)
+            curses.init_pair(COLOR_RED, curses.COLOR_RED, curses.COLOR_RED)
+            curses.init_pair(COLOR_WHITE, curses.COLOR_WHITE, curses.COLOR_WHITE)
                
         self.blocks = {
             'I': TetrisBlock([[1, 1, 1, 1]], COLOR_CYAN),

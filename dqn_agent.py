@@ -6,6 +6,9 @@ import numpy as np
 from collections import deque
 from tetris_env import TetrisEnv
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+
 class DQN(nn.Module):
     """
     Deep Q-Network (DQN) model.
@@ -84,10 +87,14 @@ class DQNAgent:
         self.learning_rate = 0.001          # Learning rate for the optimizer
         self.batch_size = 64                # Batch size for training
 
-        self.model = DQN(state_dim, action_dim)                                         # Q-network model
-        self.target_model = DQN(state_dim, action_dim)                                  # Target Q-network model
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)     # Optimizer
-        self.loss_fn = nn.MSELoss()                                                     # Loss function
+        # Initialize models and move them to GPU/CPU
+        self.model = DQN(state_dim, action_dim).to(device)                          # Q-network model
+        self.target_model = DQN(state_dim, action_dim).to(device)                   # Target Q-network model
+        
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate) # Optimizer
+        self.loss_fn = nn.MSELoss()                                                 # Loss function
+        
+        self.last_action = None             # Track the last action taken
 
     def remember(self, state, action, reward, next_state, done):
         """
@@ -105,24 +112,35 @@ class DQNAgent:
     def act(self, state):
         """
         Selects an action based on the current state using an epsilon-greedy policy.
+        Ensures that the 'Hold' action (action == 4) is not chosen consecutively.
 
         Parameters:
-        state (array-like): The current state of the environment.
+            state (array-like): The current state of the environment.
 
         Returns:
-        int: The selected action.
+            int: The selected action.
         """
         # If a random number is less than epsilon, choose a random action
         if np.random.rand() <= self.epsilon:
-            return random.randrange(self.action_dim)
-        
-        # Otherwise, choose the action with the highest Q-value
-        state = torch.FloatTensor(state).unsqueeze(0)
-        
-        with torch.no_grad():               # Disable gradient computation for improved performance
-            q_values = self.model(state)    # Get the Q-values from the model
-        
-        return np.argmax(q_values.numpy())  # Return the action with the highest Q-value
+            action = random.randrange(self.action_dim)
+            # Ensure the chosen action is not 'Hold' (4) if the last action was also 'Hold'
+            while action == 4 and self.last_action == 4:
+                action = random.randrange(self.action_dim)
+        else:
+            # Otherwise, choose the action with the highest Q-value
+            state = torch.FloatTensor(state).unsqueeze(0).to(device)
+            with torch.no_grad():  # Disable gradient computation for improved performance
+                q_values = self.model(state)  # Get the Q-values from the model
+            action = np.argmax(q_values.cpu().numpy())  # Move back to CPU for numpy operations
+
+            # Ensure the chosen action is not 'Hold' (4) if the last action was also 'Hold'
+            if action == 4 and self.last_action == 4:
+                # Choose the next best action (excluding 'Hold')
+                q_values[0, 4] = -float('inf')  # Temporarily set 'Hold' Q-value to -inf
+                action = np.argmax(q_values.cpu().numpy())  # Recompute the best action
+
+        self.last_action = action  # Update the last action taken
+        return action
 
     def replay(self):
         """
@@ -139,12 +157,12 @@ class DQNAgent:
         batch = random.sample(self.memory, self.batch_size)         # Sample a batch of experiences from the memory
         states, actions, rewards, next_states, dones = zip(*batch)  # Unzip the batch of experiences
 
-        # Convert the unzipped batch of experiences to PyTorch tensors
-        states = torch.FloatTensor(states)
-        actions = torch.LongTensor(actions)
-        rewards = torch.FloatTensor(rewards)
-        next_states = torch.FloatTensor(next_states)
-        dones = torch.FloatTensor(dones)
+        # Combine the lists of NumPy arrays into single NumPy arrays before converting to tensors
+        states = torch.FloatTensor(np.array(states)).to(device)
+        actions = torch.LongTensor(actions).to(device)
+        rewards = torch.FloatTensor(rewards).to(device)
+        next_states = torch.FloatTensor(np.array(next_states)).to(device)
+        dones = torch.FloatTensor(dones).to(device)
 
         q_values = self.model(states).gather(1, actions.unsqueeze(1)).squeeze(1)    # Get the Q-values for the current states
         next_q_values = self.target_model(next_states).max(1)[0]                    # Get the Q-values for the next states
@@ -197,17 +215,22 @@ def train_dqn(episodes):
         # While the episode is not done
         while not done:
             action = agent.act(state)                               # Select an action, given the state
-            next_state, reward, done, _ = env.step(action)          # Take a step in the environment
+            next_state, reward, done, _ = env.step(action)          # Take a step in the environment          
             next_state = next_state.flatten()                       # Flatten the next state
             agent.remember(state, action, reward, next_state, done) # Store the experience in the agent's memory
             state = next_state                                      # Update the current state
             total_reward += reward                                  # Update the total reward
-
+            
             agent.replay()                                          # Perform experience replay, training the agent
+            
+            # env.render()
 
         # At the end of the episode, update the target model and print the total reward
         agent.update_target_model()                                 
-        print(f"Episode {episode + 1}/{episodes}, Total Reward: {total_reward}")
+        print(f"\nEpisode {episode + 1}/{episodes}, Total Reward: {total_reward}")
+        
+        # Render the environment after each episode
+        env.render()
 
     env.close()
 

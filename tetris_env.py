@@ -8,6 +8,15 @@ from game import TetrisBoard, TetrisBlock, Blocks, print_board
 GAME_WIDTH = 15     # Width of the game board
 GAME_HEIGHT = 20     # Height of the game board
 
+# Define color pairs
+COLOR_CYAN = 2
+COLOR_BLUE = 3
+COLOR_MAGENTA = 4
+COLOR_YELLOW = 5
+COLOR_GREEN = 6
+COLOR_RED = 7
+COLOR_WHITE = 8
+
 class TetrisEnv(gym.Env):
     def __init__(self):
         """
@@ -29,7 +38,7 @@ class TetrisEnv(gym.Env):
         # Initialize the game board, blocks, and current block
         super(TetrisEnv, self).__init__()
         self.board = TetrisBoard(GAME_WIDTH, GAME_HEIGHT)   
-        self.blocks = Blocks()
+        self.blocks = Blocks(curse=False)
         
         # Set the current block, next block, and held block
         self.current_block = self.blocks.get_block(random.choice(list(self.blocks.blocks.keys())))
@@ -41,7 +50,7 @@ class TetrisEnv(gym.Env):
         self.y = 0
 
         # Define the action and observation spaces
-        self.action_space = spaces.Discrete(6)  # 0: left, 1: right, 2: down, 3: rotate, 4: drop, 5: hold
+        self.action_space = spaces.Discrete(6)  # 0: left, 1: right, 2: down, 3: rotate, 4: hold
         self.observation_space = spaces.Box(low=0, high=1, shape=(GAME_HEIGHT, GAME_WIDTH), dtype=np.float32)
 
     def reset(self):
@@ -70,22 +79,12 @@ class TetrisEnv(gym.Env):
     def step(self, action):
         """
         Execute one step in the Tetris environment based on the given action.
-        Parameters:
-        action (int): The action to be performed. The possible actions are:
-            0 - Move left
-            1 - Move right
-            2 - Move down
-            3 - Rotate
-            4 - Drop
-            5 - Hold
-        Returns:
-        tuple: A tuple containing:
-            - observation (any): The current state of the environment.
-            - reward (int): The reward obtained from performing the action.
-            - done (bool): Whether the game is over.
-            - info (dict): Additional information (empty dictionary in this case).
+        Enhanced reward function accounts for cleared rows, holes, and board height.
         """
-        # For each action, update the game state accordingly
+        reward = 0
+        done = False
+
+        # Execute the action
         if action == 0:  # Move left
             if self.board.is_valid_position(self.current_block, self.x - 1, self.y):
                 self.x -= 1
@@ -103,43 +102,47 @@ class TetrisEnv(gym.Env):
             while self.board.is_valid_position(self.current_block, self.x, self.y + 1):
                 self.y += 1
         elif action == 5:  # Hold
-            # If no block is held, hold the current block and get the next block
             if self.held_block is None:
                 self.held_block = self.current_block
                 self.current_block = self.next_block
                 self.next_block = self.blocks.get_block(random.choice(list(self.blocks.blocks.keys())))
-            # Else, swap the held block with the current block
             else:
                 if self.board.is_valid_position(self.held_block, self.x, self.y):
                     self.held_block, self.current_block = self.current_block, self.held_block
 
-        # Check if the game is over or if a row is filled
+        # If block cannot move down further, place it on the board
         if not self.board.is_valid_position(self.current_block, self.x, self.y + 1):
-            # Add the current block to the board and remove any full rows
+            # Calculate pre-placement metrics
+            pre_height = self.board.get_aggregate_height()
+            pre_holes = self.board.get_holes()
+
+            # Add the block to the board and clear rows
             self.board.add_block(self.current_block, self.x, self.y)
-            self.board.remove_full_rows()
-            
-            # Update the current block and next block
+            rows_cleared = self.board.remove_full_rows()
+
+            # Calculate post-placement metrics
+            post_height = self.board.get_aggregate_height()
+            post_holes = self.board.get_holes()
+
+            # Update rewards
+            if rows_cleared:
+                if rows_cleared > 0:
+                    reward += 1000 * rows_cleared  # Reward for clearing rows
+            # reward += pre_height - post_height  # Reward for reducing height
+            reward -= (post_holes - pre_holes) * 10  # Penalize creating holes
+
+            # Update block and check game over  
             self.current_block = self.next_block
             self.next_block = self.blocks.get_block(random.choice(list(self.blocks.blocks.keys())))
-            
-            # Set the starting position for the new current block
             self.x = self.board.width // 2 - len(self.current_block.shape[0]) // 2
             self.y = 0
-            
-            # Check if the new block can be placed on the board, else the game is over
+
             if not self.board.is_valid_position(self.current_block, self.x, self.y):
                 done = True
-                reward = -1
-            else:
-                done = False
-                reward = 1
-        # If the game is not over, continue playing
-        else:
-            done = False
-            reward = 0
+                reward -= 100  # Game over penalty
 
-        return self._get_observation(), reward, done, {}
+        observation = self._get_observation()
+        return observation, reward, done, {}
 
     def _get_observation(self):
         """
@@ -163,7 +166,19 @@ class TetrisEnv(gym.Env):
         Returns:
             None
         """
-        print_board(self.board)
+        self._print_board()
 
     def close(self):
         pass
+    
+    def _print_board(self):
+        """Print the board and the score on the screen"""
+        
+        for line in self.board.get_board():
+            print(' '.join([str(cell) if cell != 0 else ' ' for cell in line]))
+        
+        # Print the score
+        print(f"Score: {self.board.get_score()}")
+        
+        print('-' * self.board.width*2)       
+
