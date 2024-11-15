@@ -18,14 +18,14 @@ import random
 import time
 
 # Random seed for reproducibility
-random.seed(42)
+random.seed(252)
 
 # Define constants for the game
 GAME_WIDTH = 15     # Width of the game board
 GAME_HEIGHT = 20     # Height of the game board
 BLINK_TIMES = 3
-BLINK_DELAY = 0
-BOT_SPEED = 0
+BLINK_DELAY = .025
+BOT_SPEED = .05
 
 # Define color pairs
 COLOR_CYAN = 2
