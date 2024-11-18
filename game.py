@@ -9,7 +9,8 @@
 #     print_shadow(stdscr, board, block, x, y, offset=2): Prints the shadow of a Tetris block on the screen.
 #     main(stdscr): The main function that runs the Tetris game loop.
 
-from bot import bot_input
+# from bot import bot_input
+from bot import TetrisBot
 
 import curses
 from curses import wrapper
@@ -20,14 +21,14 @@ import random
 import time
 
 # Random seed for reproducibility
-# random.seed(252)
+random.seed(1)
 
 # Define constants for the game
 GAME_WIDTH = 15     # Width of the game board
 GAME_HEIGHT = 20     # Height of the game board
 BLINK_TIMES = 3
 BLINK_DELAY = .025
-BOT_SPEED = .05
+BOT_SPEED = .0
 
 # Define color pairs
 COLOR_CYAN = 2
@@ -408,6 +409,10 @@ def write_high_score(score):
 def main(stdscr):
     bot = print_intro(stdscr)
     
+    # Create a bot instance
+    tetris_bot = TetrisBot()
+
+    
     global GAME_WIDTH, GAME_HEIGHT
     high_scores = read_high_scores(5)
     
@@ -462,7 +467,7 @@ def main(stdscr):
                     pass
                 
                 # Get the bot input
-                x, y, continue_game, block, held_block = bot_input(board, block, x, y, held_block)
+                x, y, continue_game, block, held_block = tetris_bot.get_next_move(board, block, x, y, held_block)
                 
                 # Move the block down
                 while board.is_valid_position(block, x, y + 1):
